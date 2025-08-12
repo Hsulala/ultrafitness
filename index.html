@@ -1,24 +1,11 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <title>健身房會員系統 - 綁定</title>
-    <script src="https://static.line-scdn.net/liff/2.22.2/liff.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>健身房會員系統</title>
     <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; margin: 0; padding: 20px; background-color: #f0f2f5; }
-        .container { max-width: 400px; margin: auto; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        h1 { color: #333; }
-        h2 { color: #333; }
-        p { color: #666; }
-        input[type="text"] { width: 100%; padding: 10px; margin: 10px 0; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
-        button { width: 100%; padding: 10px; background-color: #00b900; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
-        button:disabled { background-color: #ccc; }
-        #message { margin-top: 10px; font-weight: bold; }
         body { font-family: sans-serif; padding: 1em; text-align: center; }
         .hidden { display: none; }
         input { font-size: 1.2em; padding: 0.5em; margin: 0.5em; width: 80%; border: 1px solid #ccc; border-radius: 5px; }
@@ -28,18 +15,11 @@
     </style>
 </head>
 <body>
-@@ -24,91 +20,76 @@ <h1>讀取中...</h1>
+    <div id="loadingState">
+        <h1>讀取中...</h1>
     </div>
 
     <div id="bindingView" class="hidden">
-        <div class="container">
-            <h2>會員 / 教練綁定</h2>
-            <p id="greeting"></p>
-            <p>為了啟用您的專屬功能，請輸入您的會員編號或教練綁定碼：</p>
-            <input type="text" id="bindCodeInput" placeholder="例如 UF0001 或 UL888">
-            <button id="bindButton" onclick="bindUser()">確認綁定</button>
-            <div id="status-message"></div>
-        </div>
         <h2>會員 / 教練綁定</h2>
         <p>您好, <span id="displayName"></span>！</p>
         <p>為了啟用您的專屬功能，請輸入您的會員編號或教練綁定碼：</p>
@@ -49,74 +29,34 @@
     </div>
 
     <script>
-        // 🚨 重要提醒：請將這兩個變數替換成您自己的 URL 和 LIFF ID
-        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyQDkAR_kJfbsazVWupb2Yo48gMiIxcEEwSGO8doGgaLgSQpa0IH-gTb_udibNuRlvj/exec';
-        const LIFF_ID = '2007905512-Vv8dar8X';
-
-        document.addEventListener('DOMContentLoaded', function() {
-            main();
-        });
         const myLiffId = '2007905512-Vv8dar8X';
-        const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzbJedPYLEIA96RKt245YeFXxpVwXFah5kzResXNxJXDbNJDvJKY5dOlX-_O6ZCxsr5tQ/exec';
+        const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwvAe08McF_6CM6dXCwXdlJK-50DTA3g-RmVait4KP8cJlJK2hX-5LqNSP56qOZbPGNDw/exec';
 
         async function main() {
             try {
-                await liff.init({ liffId: LIFF_ID });
-
-                if (liff.isLoggedIn()) {
-                    const profile = await liff.getProfile();
-                    document.getElementById('greeting').innerText = `你好，${profile.displayName}！`;
-                    document.getElementById('loadingState').classList.add('hidden');
-                    document.getElementById('bindingView').classList.remove('hidden');
-                    document.getElementById('bindButton').disabled = false;
-                } else {
                 await liff.init({ liffId: myLiffId });
                 if (!liff.isLoggedIn()) {
                     liff.login();
                     return;
                 }
-            } catch (err) {
-                console.error('LIFF 初始化失敗:', err);
-                document.getElementById('status-message').innerText = 'LIFF 初始化失敗。請稍後再試。';
                 
                 const profile = await liff.getProfile();
                 document.getElementById('displayName').textContent = profile.displayName;
                 document.getElementById('loadingState').classList.add('hidden');
-            }
-        }
                 document.getElementById('bindingView').classList.remove('hidden');
 
-        async function bindUser() {
-            const bindCode = document.getElementById('bindCodeInput').value;
-            const statusMessage = document.getElementById('status-message');
-            
-            if (!bindCode) {
-                statusMessage.innerText = '請輸入綁定碼。';
-                return;
-            }
                 document.getElementById('submitBinding').addEventListener('click', async () => {
                     const bindingCode = document.getElementById('bindingCode').value.trim();
                     const userId = profile.userId;
                     const messageElement = document.getElementById('message');
                     const submitButton = document.getElementById('submitBinding');
 
-            try {
-                const profile = await liff.getProfile();
-                const userId = profile.userId;
-                
-                statusMessage.innerText = '正在處理中，請稍候...';
-                document.getElementById('bindButton').disabled = true;
                     if (!bindingCode) {
                         messageElement.textContent = '請輸入您的綁定碼！';
                         messageElement.style.color = 'red';
                         return;
                     }
 
-                const payload = {
-                    action: 'bindUser',
-                    userId: userId,
-                    code: bindCode
-                };
                     messageElement.textContent = '正在驗證並傳送資料...';
                     submitButton.disabled = true; // 防止重複點擊
                     
@@ -139,33 +79,12 @@
                         messageElement.style.color = 'green';
                         setTimeout(()=> liff.closeWindow(), 3000); // 3秒後自動關閉
 
-                const response = await fetch(APPS_SCRIPT_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
                     } catch (error) {
                         messageElement.textContent = '傳送請求時發生錯誤：' + error;
                         messageElement.style.color = 'red';
                         submitButton.disabled = false;
                     }
                 });
-
-                if (!response.ok) {
-                    throw new Error('Network response was not ok.');
-                }
-                const data = await response.json();
-
-                if (data.status === 'success') {
-                    statusMessage.innerText = `綁定成功！\n${data.message}`;
-                    setTimeout(() => { liff.closeWindow(); }, 2000);
-                } else {
-                    statusMessage.innerText = `綁定失敗：${data.message}`;
-                    document.getElementById('bindButton').disabled = false;
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                statusMessage.innerText = '綁定時發生錯誤，請聯繫管理員。';
-                document.getElementById('bindButton').disabled = false;
             } catch (err) {
                 document.getElementById('loadingState').innerHTML = `<h1>LIFF 初始化失敗</h1><p>${err}</p>`;
             }
