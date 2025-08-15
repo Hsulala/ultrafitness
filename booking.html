@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>教練預約系統</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin: 0; padding: 20px; background-color: #f4f4f9; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; background: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #2c3e50; margin-bottom: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        select, input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font-size: 16px; }
+        button { width: 100%; padding: 12px; background-color: #3498db; color: white; border: none; border-radius: 4px; font-size: 18px; cursor: pointer; transition: background-color 0.3s; }
+        button:hover { background-color: #2980b9; }
+        button:disabled { background-color: #bdc3c7; cursor: not-allowed; }
+        #loader { text-align: center; padding: 40px 0; font-size: 18px; }
+        #main-content { display: none; }
+        #status-message { text-align: center; margin-top: 20px; font-weight: bold; padding: 10px; border-radius: 4px; display: none; word-break: break-word; }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>教練預約系統</h1>
+        <div id="loader">
+            <p>正在載入資料，請稍候...</p>
+        </div>
+        <div id="main-content">
+            <form id="booking-form">
+                <div class="form-group">
+                    <label for="student-select">選擇學員</label>
+                    <select id="student-select" name="student" required>
+                        <option value="">請選擇...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="booking-date">預約日期</label>
+                    <input type="date" id="booking-date" name="date" required>
+                </div>
+                <div class="form-group">
+                    <label for="booking-time">預約時間</label>
+                    <input type="time" id="booking-time" name="time" required step="1800">
+                </div>
+                <button type="submit" id="submit-button">確認送出</button>
+            </form>
+            <div id="status-message"></div>
+        </div>
+    </div>
+
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            // 【重要】請將這裡換成您 Apps Script 的部署網址
+            const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxS6DAlpcquNjwr4EUqbLkc3m1AiZztrMuKPc_hQWdAsp7T3ty4nsFu4ZEzaFG-NUohxg/exec"; 
+
+            const liffId = "2007905512-rO6nlL6D";
+            // ... (底下與上一版相同，但修改了呼叫後端的方式) ...
+            const loader = document.getElementById('loader');
+            const mainContent = document.getElementById('main-content');
+            const studentSelect = document.getElementById('student-select');
+            const bookingForm = document.getElementById('booking-form');
+            const submitButton = document.getElementById('submit-button');
+            const statusMessage = document.getElementById('status-message');
+            let userProfile = null;
+
+            initializeLiff();
+
+            async function initializeLiff() {
+                try {
+                    await liff.init({ liffId: liffId });
+                    if (!liff.isLoggedIn()) {
+                        liff.login();
+                        return;
+                    }
+                    userProfile = await liff.getProfile();
+                    
+                    // 改用 fetch 呼叫後端 API
+                    const response = await fetch(GAS_WEB_APP_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // 使用 text/plain 避免 CORS preflight
+                        body: JSON.stringify({ action: 'getStudents', userId: userProfile.userId })
+                    });
+                    const students = await response.json();
+                    populateStudents(students);
+
+                } catch (error) {
+                    showError("LIFF 初始化或取得學員資料失敗：" + error.message);
+                }
+            }
+
+            function populateStudents(students) {
+                 if (students && Array.isArray(students) && students.length > 0) {
+                    students.forEach(student => {
+                        const option = document.createElement('option');
+                        option.value = student;
+                        option.textContent = student;
+                        studentSelect.appendChild(option);
+                    });
+                    loader.style.display = 'none';
+                    mainContent.style.display = 'block';
+                } else {
+                    showError("您目前沒有可預約的學員。");
+                }
+            }
+
+            bookingForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                submitButton.disabled = true;
+                submitButton.textContent = "處理中...";
+
+                const formData = {
+                    student: document.getElementById('student-select').value,
+                    date: document.getElementById('booking-date').value.replace(/-/g, '/'),
+                    time: document.getElementById('booking-time').value,
+                    userId: userProfile.userId
+                };
+                
+                try {
+                    const response = await fetch(GAS_WEB_APP_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify({ action: 'createAppointment', formData: formData })
+                    });
+                    const result = await response.json();
+                    showResult(result);
+                } catch(error) {
+                    showError(error.message);
+                }
+            });
+            
+            // ... 底下 showError 和 showResult 函式與上一版相同 ...
+            function showResult(result) {
+                statusMessage.style.display = 'block';
+                if (result.status === 'success') {
+                    statusMessage.className = 'success';
+                    statusMessage.textContent = result.message;
+                    bookingForm.reset();
+                    setTimeout(() => liff.closeWindow(), 3000); // 3秒後自動關閉
+                } else {
+                    statusMessage.className = 'error';
+                    statusMessage.textContent = result.message;
+                }
+                submitButton.disabled = false;
+                submitButton.textContent = "確認送出";
+            }
+
+            function showError(error) {
+                loader.style.display = 'none';
+                mainContent.style.display = 'block';
+                statusMessage.style.display = 'block';
+                statusMessage.className = 'error';
+                statusMessage.textContent = "發生錯誤：" + error.toString();
+                 submitButton.disabled = false;
+                submitButton.textContent = "確認送出";
+            }
+        });
+    </script>
+</body>
+</html>
