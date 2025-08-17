@@ -42,6 +42,7 @@
     let userId = "";
 
     async function initializeLiff() {
+      alert("後端網址是：" + SCRIPT_URL);
       try {
         // !!! 重要：請務必修改成您「紀錄課程」的 LIFF ID !!!
         await liff.init({ liffId: "2007905512-nML8N5LB" }); 
