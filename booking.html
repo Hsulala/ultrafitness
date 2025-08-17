@@ -1,168 +1,208 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>教練預約系統</title>
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin: 0; padding: 20px; background-color: #f4f4f9; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; background: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        h1 { text-align: center; color: #2c3e50; margin-bottom: 20px; }
-        .form-group { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 5px; font-weight: bold; }
-        select, input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font-size: 16px; }
-        button { width: 100%; padding: 12px; background-color: #3498db; color: white; border: none; border-radius: 4px; font-size: 18px; cursor: pointer; transition: background-color 0.3s; }
-        button:hover { background-color: #2980b9; }
-        button:disabled { background-color: #bdc3c7; cursor: not-allowed; }
-        #loader { text-align: center; padding: 40px 0; font-size: 18px; }
-        #main-content { display: none; }
-        #status-message { text-align: center; margin-top: 20px; font-weight: bold; padding: 10px; border-radius: 4px; display: none; word-break: break-word; }
-        .success { background-color: #d4edda; color: #155724; }
-        .error { background-color: #f8d7da; color: #721c24; }
-    </style>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>教練預約</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
-<body>
-    <div class="container">
-        <h1>教練預約系統</h1>
-        <div id="loader">
-            <p>正在載入資料，請稍候...</p>
-        </div>
-        <div id="main-content">
-            <form id="booking-form">
-                <div class="form-group">
-                    <label for="student-select">選擇學員</label>
-                    <select id="student-select" name="student" required>
-                        <option value="">請選擇...</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="booking-date">預約日期</label>
-                    <input type="date" id="booking-date" name="date" required>
-                </div>
-                <div class="form-group">
-                    <label for="booking-time">預約時間</label>
-                    <input type="time" id="booking-time" name="time" required step="1800">
-                </div>
-                <button type="submit" id="submit-button">確認送出</button>
-            </form>
-            <div id="status-message"></div>
-        </div>
-    </div>
+<body class="bg-gray-100">
 
-    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-    <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            // 【非常重要】請將這裡換成您「全新」Apps Script 專案的部署網址
-            const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyFEbU6-hMH48HbONmTFUz_QbSuaJRVq3xOwkKhv_uAVxwxYMd7I7Q5B_eZrJW97xf6mQ/exec";
+  <div id="app" class="p-4 max-w-lg mx-auto bg-white rounded-lg shadow-md mt-5 hidden">
+    <h1 class="text-2xl font-bold text-gray-800 mb-4">教練預約</h1>
+    <div id="message" class="p-3 mb-4 text-sm rounded-lg hidden"></div>
+
+    <form id="bookingForm">
+      <div class="mb-4">
+        <label for="studentSelect" class="block text-gray-700 text-sm font-bold mb-2">選擇學員：</label>
+        <select id="studentSelect" name="student" required class="shadow border rounded w-full py-2 px-3 text-gray-700">
+          <option value="">載入中...</option>
+        </select>
+      </div>
+
+      <div class="mb-4">
+        <label for="courseTypeSelect" class="block text-gray-700 text-sm font-bold mb-2">課程類型：</label>
+        <select id="courseTypeSelect" name="courseType" required class="shadow border rounded w-full py-2 px-3 text-gray-700 bg-gray-200" disabled>
+          <option value="">請先選擇學員</option>
+        </select>
+      </div>
+
+      <div class="mb-4">
+        <label for="datePicker" class="block text-gray-700 text-sm font-bold mb-2">選擇日期：</label>
+        <input type="date" id="datePicker" name="date" required class="shadow border rounded w-full py-2 px-3 text-gray-700">
+      </div>
+
+      <div class="mb-4">
+        <label for="timeSelect" class="block text-gray-700 text-sm font-bold mb-2">選擇時間：</label>
+        <select id="timeSelect" name="time" required class="shadow border rounded w-full py-2 px-3 text-gray-700 bg-gray-200" disabled>
+          <option value="">請先選擇課程與日期</option>
+        </select>
+      </div>
+
+      <div class="mt-6">
+        <button id="submitBtn" type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded w-full">
+          送出預約
+        </button>
+      </div>
+    </form>
+  </div>
+
+<script>
+    // const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx8hgaupvkq5__hN-D2wDzYFsrSvBA05ESNL2kZlas5UyBkIMpKaSzrlXZuqNNNvVXZ5Q/exec";
+    const LIFF_ID = "2007905512-rO6nlL6D";
+    // let userId = "";
+
+    const studentSelect = document.getElementById('studentSelect');
+    const courseTypeSelect = document.getElementById('courseTypeSelect');
+    const datePicker = document.getElementById('datePicker');
+    const timeSelect = document.getElementById('timeSelect');
+
+    async function main() {
+        try {
+            await liff.init({ liffId: LIFF_ID });
+            if (!liff.isLoggedIn()) { liff.login(); return; }
             
-            // 【非常重要】請將這裡換成您「教練預約 LIFF」的 ID
-            const LIFF_ID_BOOKING = "2007905512-rO6nlL6D";
+            const profile = await liff.getProfile();
+            userId = profile.userId;
 
-            const loader = document.getElementById('loader');
-            const mainContent = document.getElementById('main-content');
-            const studentSelect = document.getElementById('student-select');
-            const bookingForm = document.getElementById('booking-form');
-            const submitButton = document.getElementById('submit-button');
-            const statusMessage = document.getElementById('status-message');
-            let userProfile = null;
-
-            initializeLiff();
-
-            async function initializeLiff() {
-                try {
-                    await liff.init({ liffId: LIFF_ID_BOOKING });
-                    if (!liff.isLoggedIn()) {
-                        liff.login();
-                        return;
-                    }
-                    userProfile = await liff.getProfile();
-                    
-                    const response = await fetch(GAS_WEB_APP_URL, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                        body: JSON.stringify({ action: 'getStudents', userId: userProfile.userId })
-                    });
-
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok: ' + response.statusText);
-                    }
-
-                    const students = await response.json();
-                    populateStudents(students);
-
-                } catch (error) {
-                    showError("LIFF 初始化或取得學員資料失敗：" + error.message);
-                }
-            }
-
-            function populateStudents(students) {
-                 if (students && Array.isArray(students) && students.length > 0) {
-                    students.forEach(student => {
-                        const option = document.createElement('option');
-                        option.value = student;
-                        option.textContent = student;
-                        studentSelect.appendChild(option);
-                    });
-                    loader.style.display = 'none';
-                    mainContent.style.display = 'block';
-                } else {
-                    showError("您目前沒有可預約的學員。");
-                }
-            }
-
-            bookingForm.addEventListener('submit', async function(e) {
-                e.preventDefault();
-                submitButton.disabled = true;
-                submitButton.textContent = "處理中...";
-
-                const formData = {
-                    student: document.getElementById('student-select').value,
-                    date: document.getElementById('booking-date').value.replace(/-/g, '/'),
-                    time: document.getElementById('booking-time').value,
-                    userId: userProfile.userId
-                };
-                
-                try {
-                    const response = await fetch(GAS_WEB_APP_URL, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                        body: JSON.stringify({ action: 'createAppointment', formData: formData })
-                    });
-                     if (!response.ok) {
-                        throw new Error('Network response was not ok: ' + response.statusText);
-                    }
-                    const result = await response.json();
-                    showResult(result);
-                } catch(error) {
-                    showError(error.message);
-                }
-            });
+            await loadStudents();
+            document.getElementById('app').classList.remove('hidden');
             
-            function showResult(result) {
-                statusMessage.style.display = 'block';
-                if (result.status === 'success') {
-                    statusMessage.className = 'success';
-                    statusMessage.textContent = result.message;
-                    bookingForm.reset();
-                    setTimeout(() => liff.closeWindow(), 3000);
-                } else {
-                    statusMessage.className = 'error';
-                    statusMessage.textContent = result.message;
-                }
-                submitButton.disabled = false;
-                submitButton.textContent = "確認送出";
-            }
+            studentSelect.addEventListener('change', loadCoursesForStudent);
+            courseTypeSelect.addEventListener('change', updateAvailableTimes);
+            datePicker.addEventListener('change', updateAvailableTimes);
+            document.getElementById('bookingForm').addEventListener('submit', handleFormSubmit);
 
-            function showError(error) {
-                loader.style.display = 'none';
-                mainContent.style.display = 'block';
-                statusMessage.style.display = 'block';
-                statusMessage.className = 'error';
-                statusMessage.textContent = "發生錯誤：" + error.toString();
-                 submitButton.disabled = false;
-                submitButton.textContent = "確認送出";
-            }
+        } catch (error) { showMessage(`初始化失敗: ${error}`, 'error'); }
+    }
+
+    async function loadStudents() {
+        try {
+            const result = await callBackend({ action: 'getStudents', userId: userId });
+            if (result.status === 'success') {
+                studentSelect.innerHTML = '<option value="">-- 請選擇學員 --</option>';
+                result.students.forEach(student => {
+                    const option = document.createElement('option');
+                    option.value = student.id;
+                    option.textContent = student.name;
+                    studentSelect.appendChild(option);
+                });
+            } else { throw new Error(result.message); }
+        } catch (error) { showMessage(`載入學員失敗: ${error.message}`, 'error'); }
+    }
+
+    async function loadCoursesForStudent() {
+        const studentId = studentSelect.value;
+        resetSelect(courseTypeSelect, "請先選擇學員");
+        resetSelect(timeSelect, "請先選擇課程與日期");
+
+        if (!studentId) return;
+        
+        try {
+            resetSelect(courseTypeSelect, "查詢中...");
+            const result = await callBackend({ action: 'getCoursesForStudent', studentId: studentId });
+            if (result.status === 'success' && result.courses.length > 0) {
+                resetSelect(courseTypeSelect, "-- 請選擇課程類型 --");
+                result.courses.forEach(course => {
+                    const option = document.createElement('option');
+                    option.value = course;
+                    option.textContent = course;
+                    courseTypeSelect.appendChild(option);
+                });
+                courseTypeSelect.disabled = false;
+                courseTypeSelect.classList.remove('bg-gray-200');
+            } else { throw new Error(result.message || "該學員無有效課程"); }
+        } catch (error) { 
+            resetSelect(courseTypeSelect, `查詢失敗: ${error.message}`);
+        }
+    }
+
+    async function updateAvailableTimes() {
+        const studentId = studentSelect.value;
+        const courseType = courseTypeSelect.value;
+        const selectedDate = datePicker.value;
+
+        if (!studentId || !courseType || !selectedDate) return;
+        
+        resetSelect(timeSelect, "查詢中...");
+        
+        try {
+            const result = await callBackend({ action: 'getAvailableTimes', date: selectedDate, courseType: courseType });
+            if (result.status === 'success' && result.times.length > 0) {
+                resetSelect(timeSelect, "-- 請選擇時段 --");
+                result.times.forEach(time => {
+                    const option = document.createElement('option');
+                    option.value = time;
+                    option.textContent = time;
+                    timeSelect.appendChild(option);
+                });
+                timeSelect.disabled = false;
+                timeSelect.classList.remove('bg-gray-200');
+            } else { throw new Error(result.message || '該日已無時段'); }
+        } catch (error) { 
+             resetSelect(timeSelect, `查詢失敗: ${error.message}`);
+        }
+    }
+
+    async function handleFormSubmit(e) {
+        e.preventDefault();
+        const submitBtn = document.getElementById('submitBtn');
+        submitBtn.disabled = true;
+        submitBtn.textContent = '處理中...';
+        
+        const formData = {
+            coachId: userId,
+            studentId: studentSelect.value,
+            courseType: courseTypeSelect.value,
+            date: datePicker.value,
+            time: timeSelect.value
+        };
+
+        try {
+            const result = await callBackend({ action: 'createBooking', formData: formData });
+            if (result.status === 'success') {
+                showMessage("預約成功！2秒後將關閉視窗。", 'success');
+                setTimeout(() => { if (liff.isInClient()) liff.closeWindow(); }, 2000);
+            } else { throw new Error(result.message); }
+        } catch (error) {
+            showMessage(`預約失敗: ${error.message}`, 'error');
+            submitBtn.disabled = false;
+            submitBtn.textContent = '送出預約';
+        }
+    }
+    
+    // --- 輔助函式 ---
+    async function callBackend(payload) {
+        const response = await fetch(SCRIPT_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
         });
-    </script>
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        return await response.json();
+    }
+
+    function resetSelect(selectElement, message) {
+        selectElement.innerHTML = `<option value="">${message}</option>`;
+        selectElement.disabled = true;
+        selectElement.classList.add('bg-gray-200');
+    }
+
+    function showMessage(msg, type = 'info') {
+        const messageDiv = document.getElementById('message');
+        const styles = {
+            info: 'bg-blue-100 text-blue-800',
+            success: 'bg-green-100 text-green-800',
+            error: 'bg-red-100 text-red-800'
+        };
+        messageDiv.textContent = msg;
+        messageDiv.className = `p-3 mb-4 text-sm rounded-lg ${styles[type]}`;
+        messageDiv.classList.remove('hidden');
+    }
+    
+    main();
+</script>
 </body>
 </html>
