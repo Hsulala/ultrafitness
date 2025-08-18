@@ -74,7 +74,6 @@
       try {
         const response = await fetch(SCRIPT_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'getStudents', userId: userId })
         });
         const result = await response.json();
@@ -113,7 +112,6 @@
       try {
         const response = await fetch(SCRIPT_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'createAppointment', formData: formData }) // 假設後端 action 是 createAppointment
         });
         const result = await response.json();
