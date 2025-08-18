@@ -12,6 +12,7 @@
 
   <div id="app" class="p-4 max-w-lg mx-auto bg-white rounded-lg shadow-md mt-5 hidden">
     <h1 class="text-2xl font-bold text-gray-800 mb-4">新增課程紀錄</h1>
+    <p class="text-xs text-red-500 font-mono break-all" id="debug-url"></p>
 
     <div id="message" class="p-3 mb-4 text-sm rounded-lg hidden"></div>
 
@@ -45,6 +46,7 @@
       try {
         // !!! 重要：請務必修改成您「紀錄課程」的 LIFF ID !!!
         await liff.init({ liffId: "2007905512-nML8N5LB" }); 
+        document.getElementById('debug-url').textContent = "後端目標網址尾碼：" + SCRIPT_URL.slice(-20);
         
         if (!liff.isLoggedIn()) {
           showMessage("您尚未登入 LINE，將為您導向登入頁面。", "bg-yellow-100 text-yellow-800");
