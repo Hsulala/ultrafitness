@@ -60,7 +60,6 @@
     const timeSelect = document.getElementById('timeSelect');
 
     async function main() {
-        alert("後端網址是：" + SCRIPT_URL);
         try {
             await liff.init({ liffId: LIFF_ID });
             if (!liff.isLoggedIn()) { liff.login(); return; }
