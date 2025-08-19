@@ -1,58 +1,92 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <base target="_top">
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>教練預約</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <base target="_top">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>教練預約</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    
+    <style>
+        body {
+            background-color: #f0f0f0; /* 給個底色，避免畫面閃爍 */
+        }
+        /* 讀取中畫面的樣式 */
+        #loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.95);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 9999;
+            transition: opacity 0.5s ease; /* 淡出效果 */
+        }
+        #loading-overlay img {
+            width: 60px;
+        }
+        #loading-overlay p {
+            margin-top: 1rem;
+            color: #333;
+        }
+    </style>
 </head>
 <body class="bg-gray-100">
 
-  <div id="app" class="p-4 max-w-lg mx-auto bg-white rounded-lg shadow-md mt-5 hidden">
-    <h1 class="text-2xl font-bold text-gray-800 mb-4">教練預約</h1>
-    <div id="message" class="p-3 mb-4 text-sm rounded-lg hidden"></div>
+    <div id="loading-overlay">
+        <img src="https://github.com/Hsulala/ultrafitness/blob/main/loading.gif" alt="Loading...">
+        <p>正在初始化頁面...</p>
+    </div>
 
-    <form id="bookingForm">
-      <div class="mb-4">
-        <label for="studentSelect" class="block text-gray-700 text-sm font-bold mb-2">選擇學員：</label>
-        <select id="studentSelect" name="student" required class="shadow border rounded w-full py-2 px-3 text-gray-700">
-          <option value="">載入中...</option>
-        </select>
-      </div>
+    <div id="app" class="p-4 max-w-lg mx-auto bg-white rounded-lg shadow-md mt-5 hidden">
+        <h1 class="text-2xl font-bold text-gray-800 mb-4">教練預約</h1>
+        <div id="message" class="p-3 mb-4 text-sm rounded-lg hidden"></div>
 
-      <div class="mb-4">
-        <label for="courseTypeSelect" class="block text-gray-700 text-sm font-bold mb-2">課程類型：</label>
-        <select id="courseTypeSelect" name="courseType" required class="shadow border rounded w-full py-2 px-3 text-gray-700 bg-gray-200" disabled>
-          <option value="">請先選擇學員</option>
-        </select>
-      </div>
+        <form id="bookingForm">
+            <div class="mb-4">
+                <label for="studentSelect" class="block text-gray-700 text-sm font-bold mb-2">選擇學員：</label>
+                <select id="studentSelect" name="student" required class="shadow border rounded w-full py-2 px-3 text-gray-700">
+                    <option value="">載入中...</option>
+                </select>
+            </div>
 
-      <div class="mb-4">
-        <label for="datePicker" class="block text-gray-700 text-sm font-bold mb-2">選擇日期：</label>
-        <input type="date" id="datePicker" name="date" required class="shadow border rounded w-full py-2 px-3 text-gray-700">
-      </div>
+            <div class="mb-4">
+                <label for="courseTypeSelect" class="block text-gray-700 text-sm font-bold mb-2">課程類型：</label>
+                <select id="courseTypeSelect" name="courseType" required class="shadow border rounded w-full py-2 px-3 text-gray-700 bg-gray-200" disabled>
+                    <option value="">請先選擇學員</option>
+                </select>
+            </div>
 
-      <div class="mb-4">
-        <label for="timeSelect" class="block text-gray-700 text-sm font-bold mb-2">選擇時間：</label>
-        <select id="timeSelect" name="time" required class="shadow border rounded w-full py-2 px-3 text-gray-700 bg-gray-200" disabled>
-          <option value="">請先選擇課程與日期</option>
-        </select>
-      </div>
+            <div class="mb-4">
+                <label for="datePicker" class="block text-gray-700 text-sm font-bold mb-2">選擇日期：</label>
+                <input type="date" id="datePicker" name="date" required class="shadow border rounded w-full py-2 px-3 text-gray-700">
+            </div>
 
-      <div class="mt-6">
-        <button id="submitBtn" type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded w-full">
-          送出預約
-        </button>
-      </div>
-    </form>
-  </div>
+            <div class="mb-4">
+                <label for="timeSelect" class="block text-gray-700 text-sm font-bold mb-2">選擇時間：</label>
+                <select id="timeSelect" name="time" required class="shadow border rounded w-full py-2 px-3 text-gray-700 bg-gray-200" disabled>
+                    <option value="">請先選擇課程與日期</option>
+                </select>
+            </div>
+
+            <div class="mt-6">
+                <button id="submitBtn" type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded w-full">
+                    送出預約
+                </button>
+            </div>
+        </form>
+    </div>
 
 <script>
+    // ==================== 3. 修改 JavaScript 邏輯 ====================
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzyhXrVghRmCqHfgfvq3Mwx-RsvnD229yu57eI9xxxDYtjMTCqT8IjMHOgR90rrM_GIgQ/exec";
     const LIFF_ID = "2007905512-rO6nlL6D";
-    // let userId = "";
+    let userId = ""; // 改回全域變數
 
     const studentSelect = document.getElementById('studentSelect');
     const courseTypeSelect = document.getElementById('courseTypeSelect');
@@ -60,24 +94,46 @@
     const timeSelect = document.getElementById('timeSelect');
 
     async function main() {
+        // 先取得畫面元素
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const appDiv = document.getElementById('app');
+
         try {
+            // (1) 初始化 LIFF
             await liff.init({ liffId: LIFF_ID });
             if (!liff.isLoggedIn()) { liff.login(); return; }
             
+            // (2) 獲取使用者資料並載入學員
             const profile = await liff.getProfile();
             userId = profile.userId;
-
             await loadStudents();
-            document.getElementById('app').classList.remove('hidden');
             
+            // (3) 所有東西都載入成功後，才開始切換畫面
+            appDiv.classList.remove('hidden'); // 讓主要內容在背景準備好
+            
+            // 使用一點延遲讓畫面渲染更平滑
+            setTimeout(() => {
+                loadingOverlay.style.opacity = '0'; // 讀取畫面淡出
+            }, 100);
+
+            // 動畫結束後徹底移除讀取畫面
+            setTimeout(() => {
+                loadingOverlay.style.display = 'none';
+            }, 600); // 500ms 動畫 + 100ms 緩衝
+            
+            // (4) 綁定事件監聽
             studentSelect.addEventListener('change', loadCoursesForStudent);
             courseTypeSelect.addEventListener('change', updateAvailableTimes);
             datePicker.addEventListener('change', updateAvailableTimes);
             document.getElementById('bookingForm').addEventListener('submit', handleFormSubmit);
 
-        } catch (error) { showMessage(`初始化失敗: ${error}`, 'error'); }
+        } catch (error) { 
+            // 如果發生任何錯誤，直接在讀取畫面上顯示錯誤訊息
+            loadingOverlay.innerHTML = `<p class="text-red-600 font-bold">初始化失敗: ${error.message}</p><p>請關閉此頁面後再試一次。</p>`;
+        }
     }
 
+    // --- 您原本的函式都維持不變 ---
     async function loadStudents() {
         try {
             const result = await callBackend({ action: 'getStudents', userId: userId });
