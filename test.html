@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>終極偵錯測試</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+</head>
+<body>
+    <h1>正在進行終極偵錯...</h1>
+    <p>請打開 F12 開發人員工具，查看 Console 的輸出。</p>
+    <p id="result"></p>
+
+<script>
+    // --- 請確認這兩個值和您 record.html 的完全一樣 ---
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzyhXrVghRmCqHfgfvq3Mwx-RsvnD229yu57eI9xxxDYtjMTCqT8IjMHOgR90rrM_GIgQ/exec";
+    const LIFF_ID = "2007905512-zj8O9r8X";
+
+    async function runTest() {
+        const resultP = document.getElementById('result');
+        try {
+            console.log("1. 初始化 LIFF...");
+            await liff.init({ liffId: LIFF_ID });
+            if (!liff.isLoggedIn()) { liff.login(); return; }
+            
+            console.log("2. 獲取使用者 Profile...");
+            const profile = await liff.getProfile();
+            const userId = profile.userId;
+            console.log("   - User ID:", userId);
+
+            console.log("3. 準備呼叫後端 action: getRecordPageData...");
+            const payload = { action: 'getRecordPageData', userId: userId };
+            console.log("   - 請求內容:", payload);
+
+            const response = await fetch(SCRIPT_URL, {
+                method: 'POST',
+                body: JSON.stringify(payload),
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            console.log("4. 收到後端回應:", response);
+            if (!response.ok) {
+                throw new Error(`伺服器回應錯誤: ${response.status}`);
+            }
+
+            const result = await response.json();
+            console.log("5. 成功解析 JSON 結果:", result);
+            resultP.textContent = "測試成功！請查看 Console。";
+            resultP.style.color = "green";
+
+        } catch (error) {
+            console.error("【測試失敗】", error);
+            resultP.textContent = `測試失敗: ${error.message}`;
+            resultP.style.color = "red";
+        }
+    }
+
+    runTest();
+</script>
+</body>
+</html>
