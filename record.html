@@ -28,25 +28,18 @@
 
     <div id="app" class="p-4 max-w-lg mx-auto bg-white rounded-lg shadow-md mt-5 hidden">
         <h1 class="text-2xl font-bold text-gray-800 mb-4">新增課程紀錄</h1>
-
         <div id="message" class="p-3 mb-4 text-sm rounded-lg hidden"></div>
-
         <form id="recordForm" class="hidden">
             <div class="mb-4">
                 <label for="studentSelect" class="block text-gray-700 text-sm font-bold mb-2">選擇學員：</label>
-                <select id="studentSelect" name="student" required class="shadow border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
-                    </select>
+                <select id="studentSelect" name="student" required class="shadow border rounded w-full py-2 px-3 text-gray-700"></select>
             </div>
-
             <div class="mb-6">
                 <label for="classContent" class="block text-gray-700 text-sm font-bold mb-2">課程內容：</label>
-                <textarea id="classContent" name="content" rows="4" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" placeholder="請輸入今天主要的訓練項目，例如：胸推、飛鳥..."></textarea>
+                <textarea id="classContent" name="content" rows="4" required class="shadow border rounded w-full py-2 px-3 text-gray-700" placeholder="請輸入今天主要的訓練項目..."></textarea>
             </div>
-
             <div class="flex items-center justify-between">
-                <button id="submitBtn" type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline w-full">
-                    送出紀錄
-                </button>
+                <button id="submitBtn" type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded w-full">送出紀錄</button>
             </div>
         </form>
     </div>
@@ -56,33 +49,21 @@
     const LIFF_ID = "2007905512-nML8N5LB";
     let userId = "";
 
-    async function initializeApp() {
+    async function main() {
         const loadingOverlay = document.getElementById('loading-overlay');
         const appDiv = document.getElementById('app');
         const recordForm = document.getElementById('recordForm');
-        
         try {
             await liff.init({ liffId: LIFF_ID });
             if (!liff.isLoggedIn()) { liff.login(); return; }
-            
             const profile = await liff.getProfile();
             userId = profile.userId;
-
-            // 呼叫我們在後端新增的專屬函式
             const result = await callBackend({ action: 'getRecordPageData', userId: userId });
-
-            if (result.status === 'error') {
-                // 如果後端回報錯誤 (例如權限不足)，就直接顯示錯誤訊息並停止
-                throw new Error(result.message);
-            }
-
-            // 權限驗證成功，處理學員清單
+            if (result.status === 'error') { throw new Error(result.message); }
             const students = result.data.students;
             if (students.length === 0) {
-                // 如果沒有待記錄的學員，顯示成功訊息
                 showMessage("太棒了！所有已上課學員均已記錄內容。", 'success');
             } else {
-                // 如果有學員，則填入下拉選單並顯示表單
                 const studentSelect = document.getElementById('studentSelect');
                 studentSelect.innerHTML = '<option value="">-- 請選擇學員 --</option>';
                 students.forEach(name => {
@@ -93,26 +74,25 @@
                 });
                 recordForm.classList.remove('hidden');
             }
-
-            // 一切處理完畢後，才顯示主畫面
             appDiv.classList.remove('hidden');
             setTimeout(() => { loadingOverlay.style.opacity = '0'; }, 100);
             setTimeout(() => { loadingOverlay.style.display = 'none'; }, 600);
-            
         } catch (error) {
-            // 捕獲所有錯誤 (包括權限錯誤)，並顯示在讀取畫面上
             const loadingText = loadingOverlay.querySelector('p');
             loadingText.textContent = error.message;
             loadingText.className = "text-red-600 font-bold";
             const loadingImg = loadingOverlay.querySelector('img');
-            if (loadingImg) loadingImg.style.display = 'none'; // 隱藏GIF
+            if (loadingImg) loadingImg.style.display = 'none';
         }
     }
-    
+
+    // ================== 輔助函式區塊 ==================
+
     // 處理表單送出
     document.getElementById('recordForm').addEventListener('submit', async function(e) {
         e.preventDefault();
         const submitBtn = document.getElementById('submitBtn');
+        const recordForm = document.getElementById('recordForm');
         submitBtn.disabled = true;
         submitBtn.textContent = '處理中...';
         
@@ -127,7 +107,7 @@
             const result = await callBackend(payload);
             if (result.status === 'success') {
                 showMessage("課程紀錄成功！2秒後將自動關閉。", 'success');
-                recordForm.classList.add('hidden'); // 隱藏表單避免重複提交
+                recordForm.classList.add('hidden');
                 setTimeout(() => { if (liff.isInClient()) liff.closeWindow(); }, 2000);
             } else {
                 throw new Error(result.message);
@@ -139,7 +119,7 @@
         }
     });
 
-    // 輔助函式: 呼叫後端
+    // 呼叫後端 Apps Script
     async function callBackend(payload) {
         const response = await fetch(SCRIPT_URL, {
             method: 'POST',
@@ -150,7 +130,7 @@
         return await response.json();
     }
     
-    // 輔助函式: 顯示訊息
+    // 在畫面上顯示訊息
     function showMessage(msg, type = 'info') {
         const messageDiv = document.getElementById('message');
         const styles = {
@@ -163,7 +143,10 @@
         messageDiv.classList.remove('hidden');
     }
 
-    initializeApp();
+    // ================== 函式結束 ==================
+
+    // 最後才執行 main 函式
+    main();
 </script>
 </body>
 </html>
