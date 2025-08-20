@@ -4,102 +4,260 @@
     <base target="_top">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>教練預約 (偵錯模式)</title> <script src="https://cdn.tailwindcss.com"></script>
+    <title>教練預約</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     
     <style>
         body {
-            background-color: #f0f0f0;
+            background-color: #f0f0f0; /* 給個底色，避免畫面閃爍 */
         }
+        /* 讀取中畫面的樣式 */
         #loading-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background-color: rgba(255, 255, 255, 0.95); display: flex;
-            justify-content: center; align-items: center; flex-direction: column;
-            z-index: 9999; transition: opacity 0.5s ease;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.95);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 9999;
+            transition: opacity 0.5s ease; /* 淡出效果 */
         }
-        #loading-overlay img { width: 60px; }
-        #loading-overlay p { margin-top: 1rem; color: #333; }
+        #loading-overlay img {
+            width: 60px;
+        }
+        #loading-overlay p {
+            margin-top: 1rem;
+            color: #333;
+        }
     </style>
 </head>
 <body class="bg-gray-100">
 
     <div id="loading-overlay">
-        <img src="https://raw.githubusercontent.com/Hsulala/ultrafitness/main/loading.gif" alt="Loading...">
+        <img src="https://raw.githubusercontent.com/Hsulala/ultrafitness/main/loading.gif
+
+" alt="Loading...">
         <p>努力載入中...</p>
     </div>
 
     <div id="app" class="p-4 max-w-lg mx-auto bg-white rounded-lg shadow-md mt-5 hidden">
-        <h1 class="text-2xl font-bold text-gray-800 mb-4">教練預約 (偵錯模式)</h1>
+        <h1 class="text-2xl font-bold text-gray-800 mb-4">教練預約</h1>
         <div id="message" class="p-3 mb-4 text-sm rounded-lg hidden"></div>
-        <div class="bg-yellow-100 text-yellow-800 p-3 rounded-lg">
-            此為偵錯頁面，請打開開發人員工具(F12)並查看 Console 的輸出。
-        </div>
-        </div>
+
+        <form id="bookingForm">
+            <div class="mb-4">
+                <label for="studentSelect" class="block text-gray-700 text-sm font-bold mb-2">選擇學員：</label>
+                <select id="studentSelect" name="student" required class="shadow border rounded w-full py-2 px-3 text-gray-700">
+                    <option value="">載入中...</option>
+                </select>
+            </div>
+
+            <div class="mb-4">
+                <label for="courseTypeSelect" class="block text-gray-700 text-sm font-bold mb-2">課程類型：</label>
+                <select id="courseTypeSelect" name="courseType" required class="shadow border rounded w-full py-2 px-3 text-gray-700 bg-gray-200" disabled>
+                    <option value="">請先選擇學員</option>
+                </select>
+            </div>
+
+            <div class="mb-4">
+                <label for="datePicker" class="block text-gray-700 text-sm font-bold mb-2">選擇日期：</label>
+                <input type="date" id="datePicker" name="date" required class="shadow border rounded w-full py-2 px-3 text-gray-700">
+            </div>
+
+            <div class="mb-4">
+                <label for="timeSelect" class="block text-gray-700 text-sm font-bold mb-2">選擇時間：</label>
+                <select id="timeSelect" name="time" required class="shadow border rounded w-full py-2 px-3 text-gray-700 bg-gray-200" disabled>
+                    <option value="">請先選擇課程與日期</option>
+                </select>
+            </div>
+
+            <div class="mt-6">
+                <button id="submitBtn" type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded w-full">
+                    送出預約
+                </button>
+            </div>
+        </form>
+    </div>
 
 <script>
+    // ==================== 3. 修改 JavaScript 邏輯 ====================
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzyhXrVghRmCqHfgfvq3Mwx-RsvnD229yu57eI9xxxDYtjMTCqT8IjMHOgR90rrM_GIgQ/exec";
     const LIFF_ID = "2007905512-rO6nlL6D";
-    let userId = "";
+    let userId = ""; // 改回全域變數
+
+    const studentSelect = document.getElementById('studentSelect');
+    const courseTypeSelect = document.getElementById('courseTypeSelect');
+    const datePicker = document.getElementById('datePicker');
+    const timeSelect = document.getElementById('timeSelect');
 
     async function main() {
+        // 先取得畫面元素
         const loadingOverlay = document.getElementById('loading-overlay');
         const appDiv = document.getElementById('app');
 
         try {
+            // (1) 初始化 LIFF
             await liff.init({ liffId: LIFF_ID });
             if (!liff.isLoggedIn()) { liff.login(); return; }
             
+            // (2) 獲取使用者資料並載入學員
             const profile = await liff.getProfile();
             userId = profile.userId;
-
-            // =================== 偵錯實驗開始 ===================
+            await loadStudents();
             
-            // 1. 把原本的載入功能暫時註解掉
-            // await loadStudents(); 
+            // (3) 所有東西都載入成功後，才開始切換畫面
+            appDiv.classList.remove('hidden'); // 讓主要內容在背景準備好
             
-            // 2. 加入我們的測試呼叫
-            console.log(">>> 正在從 booking.html 測試呼叫 getRecordPageData...");
-            const testResult = await callBackend({ action: 'getRecordPageData', userId: userId });
-            console.log("<<< 測試呼叫的結果:", testResult);
+            // 使用一點延遲讓畫面渲染更平滑
+            setTimeout(() => {
+                loadingOverlay.style.opacity = '0'; // 讀取畫面淡出
+            }, 100);
 
-            // =================== 偵錯實驗結束 ===================
-
-            // 因為我們在偵錯，所以後面的畫面顯示和事件綁定可以先不做
-            // 讓 loading 畫面持續顯示，我們只看 console 結果
-            appDiv.classList.remove('hidden'); // 顯示偵錯提示
-            setTimeout(() => { loadingOverlay.style.opacity = '0'; }, 100);
-            setTimeout(() => { loadingOverlay.style.display = 'none'; }, 600);
+            // 動畫結束後徹底移除讀取畫面
+            setTimeout(() => {
+                loadingOverlay.style.display = 'none';
+            }, 600); // 500ms 動畫 + 100ms 緩衝
             
-            // 下面的事件綁定在偵錯時不需要執行
-            // studentSelect.addEventListener('change', loadCoursesForStudent);
-            // ...
+            // (4) 綁定事件監聽
+            studentSelect.addEventListener('change', loadCoursesForStudent);
+            courseTypeSelect.addEventListener('change', updateAvailableTimes);
+            datePicker.addEventListener('change', updateAvailableTimes);
+            document.getElementById('bookingForm').addEventListener('submit', handleFormSubmit);
 
         } catch (error) { 
-            console.error("偵錯時發生錯誤:", error);
-            loadingOverlay.innerHTML = `<p class="text-red-600 font-bold">偵錯失敗: ${error.message}</p><p>請查看 Console 以取得詳細資訊。</p>`;
+            // 如果發生任何錯誤，直接在讀取畫面上顯示錯誤訊息
+            loadingOverlay.innerHTML = `<p class="text-red-600 font-bold">初始化失敗: ${error.message}</p><p>請關閉此頁面後再試一次。</p>`;
+        }
+    }
+
+    // --- 您原本的函式都維持不變 ---
+    async function loadStudents() {
+        try {
+            const result = await callBackend({ action: 'getStudents', userId: userId });
+            if (result.status === 'success') {
+                studentSelect.innerHTML = '<option value="">-- 請選擇學員 --</option>';
+                result.students.forEach(student => {
+                    const option = document.createElement('option');
+                    option.value = student.id;
+                    option.textContent = student.name;
+                    studentSelect.appendChild(option);
+                });
+            } else { throw new Error(result.message); }
+        } catch (error) { showMessage(`載入學員失敗: ${error.message}`, 'error'); }
+    }
+
+    async function loadCoursesForStudent() {
+        const studentId = studentSelect.value;
+        resetSelect(courseTypeSelect, "請先選擇學員");
+        resetSelect(timeSelect, "請先選擇課程與日期");
+
+        if (!studentId) return;
+        
+        try {
+            resetSelect(courseTypeSelect, "查詢中...");
+            const result = await callBackend({ action: 'getCoursesForStudent', studentId: studentId });
+            if (result.status === 'success' && result.courses.length > 0) {
+                resetSelect(courseTypeSelect, "-- 請選擇課程類型 --");
+                result.courses.forEach(course => {
+                    const option = document.createElement('option');
+                    option.value = course;
+                    option.textContent = course;
+                    courseTypeSelect.appendChild(option);
+                });
+                courseTypeSelect.disabled = false;
+                courseTypeSelect.classList.remove('bg-gray-200');
+            } else { throw new Error(result.message || "該學員無有效課程"); }
+        } catch (error) { 
+            resetSelect(courseTypeSelect, `查詢失敗: ${error.message}`);
+        }
+    }
+
+    async function updateAvailableTimes() {
+        const studentId = studentSelect.value;
+        const courseType = courseTypeSelect.value;
+        const selectedDate = datePicker.value;
+
+        if (!studentId || !courseType || !selectedDate) return;
+        
+        resetSelect(timeSelect, "查詢中...");
+        
+        try {
+            const result = await callBackend({ action: 'getAvailableTimes', date: selectedDate, courseType: courseType });
+            if (result.status === 'success' && result.times.length > 0) {
+                resetSelect(timeSelect, "-- 請選擇時段 --");
+                result.times.forEach(time => {
+                    const option = document.createElement('option');
+                    option.value = time;
+                    option.textContent = time;
+                    timeSelect.appendChild(option);
+                });
+                timeSelect.disabled = false;
+                timeSelect.classList.remove('bg-gray-200');
+            } else { throw new Error(result.message || '該日已無時段'); }
+        } catch (error) { 
+             resetSelect(timeSelect, `查詢失敗: ${error.message}`);
+        }
+    }
+
+    async function handleFormSubmit(e) {
+        e.preventDefault();
+        const submitBtn = document.getElementById('submitBtn');
+        submitBtn.disabled = true;
+        submitBtn.textContent = '處理中...';
+        
+        const formData = {
+            coachId: userId,
+            studentId: studentSelect.value,
+            courseType: courseTypeSelect.value,
+            date: datePicker.value,
+            time: timeSelect.value
+        };
+
+        try {
+            const result = await callBackend({ action: 'createBooking', formData: formData });
+            if (result.status === 'success') {
+                showMessage("預約成功！2秒後將關閉視窗。", 'success');
+                setTimeout(() => { if (liff.isInClient()) liff.closeWindow(); }, 2000);
+            } else { throw new Error(result.message); }
+        } catch (error) {
+            showMessage(`預約失敗: ${error.message}`, 'error');
+            submitBtn.disabled = false;
+            submitBtn.textContent = '送出預約';
         }
     }
     
     // --- 輔助函式 ---
     async function callBackend(payload) {
-        // 在發送前也印出來，確保內容正確
-        console.log("發送到後端的請求內容:", payload);
         const response = await fetch(SCRIPT_URL, {
             method: 'POST',
-            body: JSON.stringify(payload),
-            headers: { 'Content-Type': 'application/json' } // 確保 header 正確
+            body: JSON.stringify(payload)
         });
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         return await response.json();
     }
-    
-    // 為了讓主程式不報錯，保留其他函式的空殼
-    function loadStudents() {}
-    function loadCoursesForStudent() {}
-    function updateAvailableTimes() {}
-    function handleFormSubmit() {}
-    function resetSelect() {}
-    function showMessage() {}
+
+    function resetSelect(selectElement, message) {
+        selectElement.innerHTML = `<option value="">${message}</option>`;
+        selectElement.disabled = true;
+        selectElement.classList.add('bg-gray-200');
+    }
+
+    function showMessage(msg, type = 'info') {
+        const messageDiv = document.getElementById('message');
+        const styles = {
+            info: 'bg-blue-100 text-blue-800',
+            success: 'bg-green-100 text-green-800',
+            error: 'bg-red-100 text-red-800'
+        };
+        messageDiv.textContent = msg;
+        messageDiv.className = `p-3 mb-4 text-sm rounded-lg ${styles[type]}`;
+        messageDiv.classList.remove('hidden');
+    }
     
     main();
 </script>
