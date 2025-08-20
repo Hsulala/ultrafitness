@@ -1,147 +1,169 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <base target="_top">
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>新增課程紀錄</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <base target="_top">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>新增課程紀錄</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <style>
+        body { background-color: #f0f0f0; }
+        #loading-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(255, 255, 255, 0.95); display: flex;
+            justify-content: center; align-items: center; flex-direction: column;
+            z-index: 9999; transition: opacity 0.5s ease; text-align: center; padding: 1rem;
+        }
+        #loading-overlay img { width: 60px; }
+        #loading-overlay p { margin-top: 1rem; color: #333; }
+    </style>
 </head>
 <body class="bg-gray-100">
 
-  <div id="app" class="p-4 max-w-lg mx-auto bg-white rounded-lg shadow-md mt-5 hidden">
-    <h1 class="text-2xl font-bold text-gray-800 mb-4">新增課程紀錄</h1>
+    <div id="loading-overlay">
+        <img src="https://raw.githubusercontent.com/Hsulala/ultrafitness/main/LoadingCat.gif" alt="Loading...">
+        <p>正在驗證您的權限...</p>
+    </div>
 
-    <div id="message" class="p-3 mb-4 text-sm rounded-lg hidden"></div>
+    <div id="app" class="p-4 max-w-lg mx-auto bg-white rounded-lg shadow-md mt-5 hidden">
+        <h1 class="text-2xl font-bold text-gray-800 mb-4">新增課程紀錄</h1>
 
-    <form id="recordForm">
-      <div class="mb-4">
-        <label for="studentSelect" class="block text-gray-700 text-sm font-bold mb-2">選擇學員：</label>
-        <select id="studentSelect" name="student" required class="shadow border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
-          <option value="">載入中...</option>
-        </select>
-      </div>
+        <div id="message" class="p-3 mb-4 text-sm rounded-lg hidden"></div>
 
-      <div class="mb-6">
-        <label for="classContent" class="block text-gray-700 text-sm font-bold mb-2">課程內容：</label>
-        <textarea id="classContent" name="content" rows="4" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" placeholder="請輸入今天主要的訓練項目，例如：胸推、飛鳥..."></textarea>
-      </div>
+        <form id="recordForm" class="hidden">
+            <div class="mb-4">
+                <label for="studentSelect" class="block text-gray-700 text-sm font-bold mb-2">選擇學員：</label>
+                <select id="studentSelect" name="student" required class="shadow border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                    </select>
+            </div>
 
-      <div class="flex items-center justify-between">
-        <button id="submitBtn" type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline w-full">
-          送出紀錄
-        </button>
-      </div>
-    </form>
-  </div>
+            <div class="mb-6">
+                <label for="classContent" class="block text-gray-700 text-sm font-bold mb-2">課程內容：</label>
+                <textarea id="classContent" name="content" rows="4" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" placeholder="請輸入今天主要的訓練項目，例如：胸推、飛鳥..."></textarea>
+            </div>
 
-  <script>
-    // ================== LIFF 邏輯 ==================
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzyhXrVghRmCqHfgfvq3Mwx-RsvnD229yu57eI9xxxDYtjMTCqT8IjMHOgR90rrM_GIgQ/exec"; // !!! 重要：請務必修改 !!!
+            <div class="flex items-center justify-between">
+                <button id="submitBtn" type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline w-full">
+                    送出紀錄
+                </button>
+            </div>
+        </form>
+    </div>
+
+<script>
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzyhXrVghRmCqHfgfvq3Mwx-RsvnD229yu57eI9xxxDYtjMTCqT8IjMHOgR90rrM_GIgQ/exec";
+    const LIFF_ID = "2007905512-nML8N5LB";
     let userId = "";
 
-    async function initializeLiff() {
-      try {
-        // !!! 重要：請務必修改成您「紀錄課程」的 LIFF ID !!!
-        await liff.init({ liffId: "2007905512-nML8N5LB" }); 
+    async function initializeApp() {
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const appDiv = document.getElementById('app');
+        const recordForm = document.getElementById('recordForm');
         
-        if (!liff.isLoggedIn()) {
-          showMessage("您尚未登入 LINE，將為您導向登入頁面。", "bg-yellow-100 text-yellow-800");
-          liff.login();
-          return;
+        try {
+            await liff.init({ liffId: LIFF_ID });
+            if (!liff.isLoggedIn()) { liff.login(); return; }
+            
+            const profile = await liff.getProfile();
+            userId = profile.userId;
+
+            // 呼叫我們在後端新增的專屬函式
+            const result = await callBackend({ action: 'getRecordPageData', userId: userId });
+
+            if (result.status === 'error') {
+                // 如果後端回報錯誤 (例如權限不足)，就直接顯示錯誤訊息並停止
+                throw new Error(result.message);
+            }
+
+            // 權限驗證成功，處理學員清單
+            const students = result.data.students;
+            if (students.length === 0) {
+                // 如果沒有待記錄的學員，顯示成功訊息
+                showMessage("太棒了！所有已上課學員均已記錄內容。", 'success');
+            } else {
+                // 如果有學員，則填入下拉選單並顯示表單
+                const studentSelect = document.getElementById('studentSelect');
+                studentSelect.innerHTML = '<option value="">-- 請選擇學員 --</option>';
+                students.forEach(name => {
+                    const option = document.createElement('option');
+                    option.value = name;
+                    option.textContent = name;
+                    studentSelect.appendChild(option);
+                });
+                recordForm.classList.remove('hidden');
+            }
+
+            // 一切處理完畢後，才顯示主畫面
+            appDiv.classList.remove('hidden');
+            setTimeout(() => { loadingOverlay.style.opacity = '0'; }, 100);
+            setTimeout(() => { loadingOverlay.style.display = 'none'; }, 600);
+            
+        } catch (error) {
+            // 捕獲所有錯誤 (包括權限錯誤)，並顯示在讀取畫面上
+            const loadingText = loadingOverlay.querySelector('p');
+            loadingText.textContent = error.message;
+            loadingText.className = "text-red-600 font-bold";
+            const loadingImg = loadingOverlay.querySelector('img');
+            if (loadingImg) loadingImg.style.display = 'none'; // 隱藏GIF
         }
-        
-        const profile = await liff.getProfile();
-        userId = profile.userId;
-
-        // LIFF 初始化成功後，載入學員資料
-        await loadStudents();
-
-        // 顯示主應用介面
-        document.getElementById('app').classList.remove('hidden');
-        
-      } catch (error) {
-        showMessage(`LIFF 初始化失敗: ${error}`, "bg-red-100 text-red-800");
-      }
     }
-
-    // 載入該教練負責的學員
-    async function loadStudents() {
-      const selectElement = document.getElementById('studentSelect');
-      try {
-        const response = await fetch(SCRIPT_URL, {
-          method: 'POST',
-          body: JSON.stringify({ action: 'getStudents', userId: userId })
-        });
-        const result = await response.json();
-        
-        if (result.status === 'success' && result.students.length > 0) {
-          selectElement.innerHTML = '<option value="">-- 請選擇學員 --</option>'; // 清空並加入預設選項
-          result.students.forEach(student => {
-            const option = document.createElement('option');
-            option.value = student.id; // 假設學員有個唯一 ID
-            option.textContent = student.name;
-            selectElement.appendChild(option);
-          });
-        } else {
-          selectElement.innerHTML = '<option value="">沒有可選擇的學員</option>';
-          showMessage(result.message || "無法載入學員名單。", "bg-yellow-100 text-yellow-800");
-        }
-      } catch (error) {
-        selectElement.innerHTML = '<option value="">載入失敗</option>';
-        showMessage(`載入學員名單時發生錯誤: ${error}`, "bg-red-100 text-red-800");
-      }
-    }
-
+    
     // 處理表單送出
     document.getElementById('recordForm').addEventListener('submit', async function(e) {
-      e.preventDefault(); // 防止表單傳統送出
-      const submitBtn = document.getElementById('submitBtn');
-      submitBtn.disabled = true;
-      submitBtn.textContent = '處理中...';
-      
-      const formData = {
-        coachId: userId,
-        studentId: document.getElementById('studentSelect').value,
-        content: document.getElementById('classContent').value,
-      };
+        e.preventDefault();
+        const submitBtn = document.getElementById('submitBtn');
+        submitBtn.disabled = true;
+        submitBtn.textContent = '處理中...';
+        
+        const payload = {
+            action: 'submitClassRecord',
+            coachId: userId,
+            studentName: document.getElementById('studentSelect').value,
+            content: document.getElementById('classContent').value,
+        };
 
-      try {
-        const response = await fetch(SCRIPT_URL, {
-          method: 'POST',
-          body: JSON.stringify({ action: 'createAppointment', formData: formData }) // 假設後端 action 是 createAppointment
-        });
-        const result = await response.json();
-
-        if (result.status === 'success') {
-          showMessage("課程紀錄成功！", "bg-green-100 text-green-800");
-          // 成功後，可以選擇關閉 LIFF 視窗
-          setTimeout(() => {
-            if (liff.isInClient()) {
-              liff.closeWindow();
+        try {
+            const result = await callBackend(payload);
+            if (result.status === 'success') {
+                showMessage("課程紀錄成功！2秒後將自動關閉。", 'success');
+                recordForm.classList.add('hidden'); // 隱藏表單避免重複提交
+                setTimeout(() => { if (liff.isInClient()) liff.closeWindow(); }, 2000);
+            } else {
+                throw new Error(result.message);
             }
-          }, 2000); // 延遲 2 秒後關閉
-        } else {
-          throw new Error(result.message || "後端處理失敗");
+        } catch (error) {
+            showMessage(`送出失敗: ${error.message}`, 'error');
+            submitBtn.disabled = false;
+            submitBtn.textContent = '送出紀錄';
         }
-      } catch (error) {
-        showMessage(`送出失敗: ${error}`, "bg-red-100 text-red-800");
-        submitBtn.disabled = false;
-        submitBtn.textContent = '送出紀錄';
-      }
     });
 
-    // 顯示訊息的輔助函式
-    function showMessage(msg, styleClass) {
-      const messageDiv = document.getElementById('message');
-      messageDiv.textContent = msg;
-      messageDiv.className = `p-3 mb-4 text-sm rounded-lg ${styleClass}`; // 移除舊樣式並套用新樣式
-      messageDiv.classList.remove('hidden');
+    // 輔助函式: 呼叫後端
+    async function callBackend(payload) {
+        const response = await fetch(SCRIPT_URL, {
+            method: 'POST',
+            body: JSON.stringify(payload),
+            headers: { 'Content-Type': 'application/json' }
+        });
+        if (!response.ok) throw new Error(`伺服器錯誤: ${response.status}`);
+        return await response.json();
+    }
+    
+    // 輔助函式: 顯示訊息
+    function showMessage(msg, type = 'info') {
+        const messageDiv = document.getElementById('message');
+        const styles = {
+            info: 'bg-blue-100 text-blue-800',
+            success: 'bg-green-100 text-green-800',
+            error: 'bg-red-100 text-red-800'
+        };
+        messageDiv.textContent = msg;
+        messageDiv.className = `p-3 mb-4 text-sm rounded-lg ${styles[type]}`;
+        messageDiv.classList.remove('hidden');
     }
 
-    // 執行 LIFF 初始化
-    initializeLiff();
-  </script>
+    initializeApp();
+</script>
 </body>
 </html>
