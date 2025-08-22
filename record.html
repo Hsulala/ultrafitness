@@ -1,340 +1,240 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-TW">
 <head>
-    <base target="_top">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>新增課程紀錄</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>課程記錄 - 調試版</title>
     <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
-        body { background-color: #f0f0f0; }
-        #loading-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background-color: rgba(255, 255, 255, 0.95); display: flex;
-            justify-content: center; align-items: center; flex-direction: column;
-            z-index: 9999; transition: opacity 0.5s ease; text-align: center; padding: 1rem;
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
         }
-        #loading-overlay img { width: 60px; }
-        #loading-overlay p { margin-top: 1rem; color: #333; }
-        #debug-info {
-            position: fixed; bottom: 0; left: 0; right: 0; 
-            background: #000; color: #0f0; padding: 10px; 
-            font-family: monospace; font-size: 12px; 
-            max-height: 200px; overflow-y: auto; z-index: 10000;
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
+        .debug-info {
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        .warning { background: #fff3cd; color: #856404; }
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px 0;
+        }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #6c757d; cursor: not-allowed; }
     </style>
 </head>
-<body class="bg-gray-100">
-
-    <div id="loading-overlay">
-        <img src="https://raw.githubusercontent.com/Hsulala/ultrafitness/main/LoadingCat.gif" alt="Loading...">
-        <p>正在驗證您的權限...</p>
+<body>
+    <div class="container">
+        <h1>課程記錄系統 - 調試版</h1>
+        
+        <div id="debugInfo" class="debug-info">等待初始化...</div>
+        
+        <button id="testBtn" onclick="runTests()">開始測試</button>
+        
+        <div id="results"></div>
     </div>
 
-    <div id="app" class="p-4 max-w-lg mx-auto bg-white rounded-lg shadow-md mt-5 hidden">
-        <h1 class="text-2xl font-bold text-gray-800 mb-4">新增課程紀錄</h1>
+    <script>
+        // 全域變數
+        let userId = null;
+        const API_URL = 'https://script.google.com/macros/s/AKfycbzyhXrVghRmCqHfgfvq3Mwx-RsvnD229yu57eI9xxxDYtjMTCqT8IjMHOgR90rrM_GIgQ/exec';
         
-        <!-- 測試按鈕區域 -->
-        <div class="mb-4 p-3 bg-gray-50 rounded-lg">
-            <h3 class="text-sm font-bold text-gray-600 mb-2">測試工具：</h3>
-            <button id="testBtn" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-1 px-3 rounded text-sm mr-2">測試後端連線</button>
-            <button id="clearLogBtn" class="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-1 px-3 rounded text-sm">清除日誌</button>
-        </div>
-        
-        <div id="message" class="p-3 mb-4 text-sm rounded-lg hidden"></div>
-        <form id="recordForm" class="hidden">
-            <div class="mb-4">
-                <label for="studentSelect" class="block text-gray-700 text-sm font-bold mb-2">選擇學員：</label>
-                <select id="studentSelect" name="student" required class="shadow border rounded w-full py-2 px-3 text-gray-700"></select>
-            </div>
-            <div class="mb-6">
-                <label for="classContent" class="block text-gray-700 text-sm font-bold mb-2">課程內容：</label>
-                <textarea id="classContent" name="content" rows="4" required class="shadow border rounded w-full py-2 px-3 text-gray-700" placeholder="請輸入今天主要的訓練項目..."></textarea>
-            </div>
-            <div class="flex items-center justify-between">
-                <button id="submitBtn" type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded w-full">送出紀錄</button>
-            </div>
-        </form>
-    </div>
-
-    <!-- 調試面板 -->
-    <div id="debug-info"></div>
-
-<script>
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzyhXrVghRmCqHfgfvq3Mwx-RsvnD229yu57eI9xxxDYtjMTCqT8IjMHOgR90rrM_GIgQ/exec";
-    const LIFF_ID = "2007905512-nML8N5LB";
-    let userId = "";
-
-    // 調試日誌功能
-    function debugLog(message) {
-        console.log(message);
-        const debugDiv = document.getElementById('debug-info');
-        const timestamp = new Date().toLocaleTimeString();
-        debugDiv.innerHTML += `[${timestamp}] ${message}<br>`;
-        debugDiv.scrollTop = debugDiv.scrollHeight;
-    }
-
-    async function main() {
-        const loadingOverlay = document.getElementById('loading-overlay');
-        const appDiv = document.getElementById('app');
-        const recordForm = document.getElementById('recordForm');
-        
-        try {
-            debugLog('開始初始化 LIFF...');
-            
-            // 檢查 LIFF SDK 是否正確載入
-            if (typeof liff === 'undefined') {
-                throw new Error('LIFF SDK 未正確載入');
-            }
-            debugLog('LIFF SDK 已載入');
-
-            // 初始化 LIFF
-            await liff.init({ liffId: LIFF_ID });
-            debugLog('LIFF 初始化成功');
-            
-            // 檢查登入狀態
-            if (!liff.isLoggedIn()) { 
-                debugLog('用戶未登入，跳轉登入頁面');
-                liff.login(); 
-                return; 
-            }
-            debugLog('用戶已登入');
-            
-            // 獲取用戶資料
-            const profile = await liff.getProfile();
-            userId = profile.userId;
-            debugLog(`用戶 ID: ${userId}`);
-            
-            // 呼叫後端 API
-            debugLog('開始呼叫後端 API...');
-            const result = await callBackend({ 
-                action: 'getRecordPageData', 
-                userId: userId 
-            });
-            debugLog(`後端回應: ${JSON.stringify(result)}`);
-            
-            if (result.status === 'error') { 
-                throw new Error(result.message); 
-            }
-            
-            const students = result.data.students;
-            debugLog(`學員數量: ${students.length}`);
-            
-            if (students.length === 0) {
-                showMessage("太棒了！所有已上課學員均已記錄內容。", 'success');
-                debugLog('沒有需要記錄的學員');
-            } else {
-                // 填充學員選項
-                const studentSelect = document.getElementById('studentSelect');
-                studentSelect.innerHTML = '<option value="">-- 請選擇學員 --</option>';
-                students.forEach(name => {
-                    const option = document.createElement('option');
-                    option.value = name;
-                    option.textContent = name;
-                    studentSelect.appendChild(option);
-                });
-                recordForm.classList.remove('hidden');
-                debugLog('表單已顯示');
-            }
-            
-            // 顯示主應用程式
-            appDiv.classList.remove('hidden');
-            setTimeout(() => { loadingOverlay.style.opacity = '0'; }, 100);
-            setTimeout(() => { loadingOverlay.style.display = 'none'; }, 600);
-            debugLog('應用程式載入完成');
-            
-        } catch (error) {
-            debugLog(`錯誤: ${error.message}`);
-            debugLog(`錯誤堆疊: ${error.stack}`);
-            
-            const loadingText = loadingOverlay.querySelector('p');
-            loadingText.textContent = `載入失敗: ${error.message}`;
-            loadingText.className = "text-red-600 font-bold";
-            const loadingImg = loadingOverlay.querySelector('img');
-            if (loadingImg) loadingImg.style.display = 'none';
+        function logDebug(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const debugDiv = document.getElementById('debugInfo');
+            debugDiv.textContent += `[${timestamp}] ${message}\n`;
+            console.log(`[${timestamp}] ${message}`);
         }
-    }
-
-    // ================== 輔助函式區塊 ==================
-
-    // 測試按鈕功能
-    document.getElementById('testBtn').addEventListener('click', async function() {
-        const testBtn = document.getElementById('testBtn');
-        testBtn.disabled = true;
-        testBtn.textContent = '測試中...';
         
-        try {
-            debugLog('=== 開始測試後端連線 ===');
-            const testPayload = { action: 'test', userId: userId || 'test-user' };
-            const result = await callBackend(testPayload);
-            debugLog(`測試結果: ${JSON.stringify(result)}`);
-            showMessage('後端連線測試成功！', 'success');
-        } catch (error) {
-            debugLog(`測試失敗: ${error.message}`);
-            showMessage(`測試失敗: ${error.message}`, 'error');
-        } finally {
-            testBtn.disabled = false;
-            testBtn.textContent = '測試後端連線';
+        function addResult(message, type = 'info') {
+            const resultsDiv = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `status ${type}`;
+            div.textContent = message;
+            resultsDiv.appendChild(div);
         }
-    });
 
-    // 清除日誌按鈕
-    document.getElementById('clearLogBtn').addEventListener('click', function() {
-        document.getElementById('debug-info').innerHTML = '';
-        debugLog('日誌已清除');
-    });
-
-    // 處理表單送出
-    document.getElementById('recordForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const submitBtn = document.getElementById('submitBtn');
-        const recordForm = document.getElementById('recordForm');
-        submitBtn.disabled = true;
-        submitBtn.textContent = '處理中...';
-        
-        const payload = {
-            action: 'submitClassRecord',
-            coachId: userId,
-            studentName: document.getElementById('studentSelect').value,
-            content: document.getElementById('classContent').value,
-        };
-
-        try {
-            debugLog(`送出紀錄: ${JSON.stringify(payload)}`);
-            const result = await callBackend(payload);
-            debugLog(`送出結果: ${JSON.stringify(result)}`);
-            
-            if (result.status === 'success') {
-                showMessage("課程紀錄成功！2秒後將自動關閉。", 'success');
-                recordForm.classList.add('hidden');
-                setTimeout(() => { if (liff.isInClient()) liff.closeWindow(); }, 2000);
-            } else {
-                throw new Error(result.message);
-            }
-        } catch (error) {
-            debugLog(`送出失敗: ${error.message}`);
-            showMessage(`送出失敗: ${error.message}`, 'error');
-            submitBtn.disabled = false;
-            submitBtn.textContent = '送出紀錄';
-        }
-    });
-
-    // 呼叫後端 Apps Script
-    async function callBackend(payload) {
-        try {
-            debugLog(`發送請求到: ${SCRIPT_URL}`);
-            debugLog(`請求內容: ${JSON.stringify(payload)}`);
-            
-            // 嘗試方法1: 標準 POST 請求
+        // LIFF 初始化
+        async function initializeLiff() {
             try {
-                const response = await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    body: JSON.stringify(payload),
-                    headers: { 
-                        'Content-Type': 'application/json'
-                    },
-                    redirect: 'follow'
-                });
+                logDebug('開始初始化 LIFF...');
                 
-                debugLog(`POST 回應狀態: ${response.status} ${response.statusText}`);
-                
-                if (response.ok) {
-                    const contentType = response.headers.get('content-type');
-                    debugLog(`回應內容類型: ${contentType}`);
-                    
-                    const responseText = await response.text();
-                    debugLog(`回應內容: ${responseText}`);
-                    
-                    // 嘗試解析為 JSON，如果失敗就返回文字內容
-                    try {
-                        const result = JSON.parse(responseText);
-                        debugLog(`POST 請求成功，JSON 解析成功`);
-                        return result;
-                    } catch (jsonError) {
-                        debugLog(`JSON 解析失敗，回傳文字內容: ${responseText}`);
-                        // 如果不是 JSON，可能是 doGet() 的回應，嘗試模擬成功
-                        if (responseText.includes('運作正常')) {
-                            return { 
-                                status: 'success', 
-                                message: '後端伺服器連線正常',
-                                data: { students: [] }
-                            };
-                        }
-                        throw new Error(`伺服器回應格式錯誤: ${responseText}`);
-                    }
+                if (!window.liff) {
+                    throw new Error('LIFF SDK 未載入');
+                }
+                logDebug('LIFF SDK 已載入');
+
+                await liff.init({ liffId: '2006583344-VJqd6WKa' });
+                logDebug('LIFF 初始化成功');
+
+                if (!liff.isLoggedIn()) {
+                    logDebug('用戶未登入，開始登入流程...');
+                    liff.login();
+                    return false;
                 }
                 
-                debugLog(`POST 請求失敗: ${response.status}`);
-                throw new Error(`POST 失敗: ${response.status}`);
+                logDebug('用戶已登入');
                 
-            } catch (postError) {
-                debugLog(`POST 請求錯誤: ${postError.message}`);
+                const profile = await liff.getProfile();
+                userId = profile.userId;
+                logDebug(`用戶 ID: ${userId}`);
                 
-                // 嘗試方法2: GET 請求（測試連線）
-                debugLog('嘗試使用 GET 請求測試連線...');
+                return true;
                 
-                const getResponse = await fetch(SCRIPT_URL, {
-                    method: 'GET',
-                    redirect: 'follow'
-                });
-                
-                debugLog(`GET 回應狀態: ${getResponse.status} ${getResponse.statusText}`);
-                
-                if (getResponse.ok) {
-                    const getResponseText = await getResponse.text();
-                    debugLog(`GET 回應內容: ${getResponseText}`);
-                    
-                    if (getResponseText.includes('運作正常')) {
-                        throw new Error('後端連線正常，但 POST 請求失敗。可能是 CORS 問題或後端不支援該 action');
-                    }
-                }
-                
-                throw new Error(`連線失敗: ${postError.message}`);
+            } catch (error) {
+                logDebug(`LIFF 初始化失敗: ${error.message}`);
+                addResult(`LIFF 初始化失敗: ${error.message}`, 'error');
+                return false;
             }
-            
-        } catch (error) {
-            debugLog(`callBackend 最終錯誤: ${error.message}`);
-            
-            // 如果是網路錯誤，提供更具體的錯誤訊息
-            if (error.message === 'Load failed' || error.message === 'Failed to fetch') {
-                throw new Error('無法連接到伺服器，請檢查網路連線或稍後再試');
-            }
-            
-            throw error;
         }
-    }
-    
-    // 在畫面上顯示訊息
-    function showMessage(msg, type = 'info') {
-        const messageDiv = document.getElementById('message');
-        const styles = {
-            info: 'bg-blue-100 text-blue-800',
-            success: 'bg-green-100 text-green-800',
-            error: 'bg-red-100 text-red-800'
-        };
-        messageDiv.textContent = msg;
-        messageDiv.className = `p-3 mb-4 text-sm rounded-lg ${styles[type]}`;
-        messageDiv.classList.remove('hidden');
-        debugLog(`顯示訊息: ${msg} (${type})`);
-    }
 
-    // ================== 函式結束 ==================
+        // 測試不同的請求方法
+        async function testConnection() {
+            logDebug('=== 開始連接測試 ===');
+            
+            // 測試 1: 簡單 GET 請求
+            try {
+                logDebug('測試 1: 簡單 GET 請求');
+                const response = await fetch(API_URL, {
+                    method: 'GET',
+                    mode: 'cors'
+                });
+                logDebug(`GET 回應狀態: ${response.status}`);
+                const text = await response.text();
+                logDebug(`GET 回應內容: ${text}`);
+                addResult('✅ GET 請求成功', 'success');
+            } catch (error) {
+                logDebug(`GET 請求失敗: ${error.message}`);
+                addResult(`❌ GET 請求失敗: ${error.message}`, 'error');
+            }
 
-    // 頁面載入完成後執行
-    document.addEventListener('DOMContentLoaded', function() {
-        debugLog('DOM 已載入完成，開始執行 main()');
-        main();
-    });
+            // 測試 2: OPTIONS 請求 (CORS preflight)
+            try {
+                logDebug('測試 2: OPTIONS 請求 (CORS preflight)');
+                const response = await fetch(API_URL, {
+                    method: 'OPTIONS',
+                    mode: 'cors',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                logDebug(`OPTIONS 回應狀態: ${response.status}`);
+                logDebug(`CORS 標頭: ${response.headers.get('Access-Control-Allow-Origin')}`);
+                addResult('✅ OPTIONS 請求成功', 'success');
+            } catch (error) {
+                logDebug(`OPTIONS 請求失敗: ${error.message}`);
+                addResult(`❌ OPTIONS 請求失敗: ${error.message}`, 'error');
+            }
 
-    // 全域錯誤處理
-    window.addEventListener('error', function(event) {
-        debugLog(`全域錯誤: ${event.error ? event.error.message : event.message}`);
-    });
+            // 測試 3: POST 請求 (原始方法)
+            try {
+                logDebug('測試 3: POST 請求 (原始方法)');
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    mode: 'cors',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'getRecordPageData',
+                        userId: userId
+                    })
+                });
+                logDebug(`POST 回應狀態: ${response.status}`);
+                const result = await response.json();
+                logDebug(`POST 回應內容: ${JSON.stringify(result)}`);
+                addResult('✅ POST 請求成功', 'success');
+                return result;
+            } catch (error) {
+                logDebug(`POST 請求失敗: ${error.message}`);
+                addResult(`❌ POST 請求失敗: ${error.message}`, 'error');
+            }
 
-    window.addEventListener('unhandledrejection', function(event) {
-        debugLog(`未處理的 Promise 錯誤: ${event.reason}`);
-    });
-</script>
+            // 測試 4: POST 請求 (無 CORS mode)
+            try {
+                logDebug('測試 4: POST 請求 (無 CORS mode)');
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'getRecordPageData',
+                        userId: userId
+                    })
+                });
+                logDebug(`POST (無 CORS) 回應狀態: ${response.status}`);
+                const result = await response.json();
+                logDebug(`POST (無 CORS) 回應內容: ${JSON.stringify(result)}`);
+                addResult('✅ POST (無 CORS) 請求成功', 'success');
+                return result;
+            } catch (error) {
+                logDebug(`POST (無 CORS) 請求失敗: ${error.message}`);
+                addResult(`❌ POST (無 CORS) 請求失敗: ${error.message}`, 'error');
+            }
+
+            return null;
+        }
+
+        // 主測試函數
+        async function runTests() {
+            const testBtn = document.getElementById('testBtn');
+            testBtn.disabled = true;
+            testBtn.textContent = '測試中...';
+            
+            // 清空結果
+            document.getElementById('results').innerHTML = '';
+            
+            // 初始化 LIFF
+            const liffReady = await initializeLiff();
+            if (!liffReady) {
+                testBtn.disabled = false;
+                testBtn.textContent = '重新測試';
+                return;
+            }
+            
+            // 測試連接
+            await testConnection();
+            
+            testBtn.disabled = false;
+            testBtn.textContent = '重新測試';
+            logDebug('=== 測試完成 ===');
+        }
+
+        // 頁面載入完成後初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            logDebug('DOM 已載入完成');
+        });
+    </script>
 </body>
 </html>
