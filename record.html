@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>課程記錄 - 調試版</title>
+    <title>課程記錄 - 替代方案測試</title>
     <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
         body {
@@ -28,6 +28,8 @@
             font-family: monospace;
             font-size: 12px;
             white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
         }
         .status {
             padding: 10px;
@@ -51,28 +53,43 @@
         }
         button:hover { background: #0056b3; }
         button:disabled { background: #6c757d; cursor: not-allowed; }
+        input[type="url"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>課程記錄系統 - 調試版</h1>
+        <h1>課程記錄系統 - 替代方案測試</h1>
         
         <div id="debugInfo" class="debug-info">等待初始化...</div>
         
-        <button id="testBtn" onclick="runTests()">開始測試</button>
+        <div>
+            <h3>測試不同的 URL</h3>
+            <input type="url" id="urlInput" placeholder="輸入 Apps Script URL" 
+                   value="https://script.google.com/macros/s/AKfycbzyhXrVghRmCqHfgfvq3Mwx-RsvnD229yu57eI9xxxDYtjMTCqT8IjMHOgR90rrM_GIgQ/exec">
+        </div>
+        
+        <button onclick="testCurrentUrl()">測試目前 URL</button>
+        <button onclick="testJsonpMethod()">嘗試 JSONP 方法</button>
+        <button onclick="testProxyMethod()">嘗試代理方法</button>
+        <button onclick="generateNewDeployment()">生成新部署建議</button>
         
         <div id="results"></div>
     </div>
 
     <script>
-        // 全域變數
         let userId = null;
-        const API_URL = 'https://script.google.com/macros/s/AKfycbzyhXrVghRmCqHfgfvq3Mwx-RsvnD229yu57eI9xxxDYtjMTCqT8IjMHOgR90rrM_GIgQ/exec';
         
         function logDebug(message) {
             const timestamp = new Date().toLocaleTimeString();
             const debugDiv = document.getElementById('debugInfo');
             debugDiv.textContent += `[${timestamp}] ${message}\n`;
+            debugDiv.scrollTop = debugDiv.scrollHeight;
             console.log(`[${timestamp}] ${message}`);
         }
         
@@ -88,13 +105,7 @@
         async function initializeLiff() {
             try {
                 logDebug('開始初始化 LIFF...');
-                
-                if (!window.liff) {
-                    throw new Error('LIFF SDK 未載入');
-                }
-                logDebug('LIFF SDK 已載入');
-
-                await liff.init({ liffId: '2007905512-nML8N5LB' });
+                await liff.init({ liffId: '2006583344-V5GdWvAK' });
                 logDebug('LIFF 初始化成功');
 
                 if (!liff.isLoggedIn()) {
@@ -103,14 +114,10 @@
                     return false;
                 }
                 
-                logDebug('用戶已登入');
-                
                 const profile = await liff.getProfile();
                 userId = profile.userId;
                 logDebug(`用戶 ID: ${userId}`);
-                
                 return true;
-                
             } catch (error) {
                 logDebug(`LIFF 初始化失敗: ${error.message}`);
                 addResult(`LIFF 初始化失敗: ${error.message}`, 'error');
@@ -118,122 +125,175 @@
             }
         }
 
-        // 測試不同的請求方法
-        async function testConnection() {
-            logDebug('=== 開始連接測試 ===');
+        // 測試目前 URL
+        async function testCurrentUrl() {
+            const url = document.getElementById('urlInput').value;
+            logDebug(`=== 測試 URL: ${url} ===`);
             
-            // 測試 1: 簡單 GET 請求
             try {
-                logDebug('測試 1: 簡單 GET 請求');
-                const response = await fetch(API_URL, {
-                    method: 'GET',
-                    mode: 'cors'
-                });
-                logDebug(`GET 回應狀態: ${response.status}`);
-                const text = await response.text();
-                logDebug(`GET 回應內容: ${text}`);
-                addResult('✅ GET 請求成功', 'success');
-            } catch (error) {
-                logDebug(`GET 請求失敗: ${error.message}`);
-                addResult(`❌ GET 請求失敗: ${error.message}`, 'error');
-            }
-
-            // 測試 2: OPTIONS 請求 (CORS preflight)
-            try {
-                logDebug('測試 2: OPTIONS 請求 (CORS preflight)');
-                const response = await fetch(API_URL, {
-                    method: 'OPTIONS',
-                    mode: 'cors',
+                // 使用 fetch 測試
+                const response = await fetch(url, {
+                    method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'getRecordPageData',
+                        userId: userId
+                    })
+                });
+                
+                logDebug(`回應狀態: ${response.status}`);
+                const result = await response.json();
+                logDebug(`回應內容: ${JSON.stringify(result)}`);
+                addResult('✅ URL 測試成功！', 'success');
+                
+            } catch (error) {
+                logDebug(`URL 測試失敗: ${error.message}`);
+                
+                // 嘗試不同的方法
+                try {
+                    logDebug('嘗試使用 XMLHttpRequest...');
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('POST', url, true);
+                    xhr.setRequestHeader('Content-Type', 'application/json');
+                    
+                    xhr.onreadystatechange = function() {
+                        if (xhr.readyState === 4) {
+                            logDebug(`XMLHttpRequest 狀態: ${xhr.status}`);
+                            if (xhr.status === 200) {
+                                logDebug(`XMLHttpRequest 回應: ${xhr.responseText}`);
+                                addResult('✅ XMLHttpRequest 方法成功！', 'success');
+                            } else {
+                                logDebug(`XMLHttpRequest 失敗: ${xhr.statusText}`);
+                                addResult(`❌ XMLHttpRequest 失敗: ${xhr.statusText}`, 'error');
+                            }
+                        }
+                    };
+                    
+                    xhr.onerror = function() {
+                        logDebug('XMLHttpRequest 網路錯誤');
+                        addResult('❌ XMLHttpRequest 網路錯誤', 'error');
+                    };
+                    
+                    xhr.send(JSON.stringify({
+                        action: 'getRecordPageData',
+                        userId: userId
+                    }));
+                    
+                } catch (xhrError) {
+                    logDebug(`XMLHttpRequest 也失敗: ${xhrError.message}`);
+                    addResult(`❌ 所有方法都失敗: ${error.message}`, 'error');
+                }
+            }
+        }
+
+        // JSONP 方法（GET 請求）
+        async function testJsonpMethod() {
+            logDebug('=== 嘗試 JSONP 方法 ===');
+            const url = document.getElementById('urlInput').value;
+            
+            try {
+                // 建立 script 標籤進行 JSONP 請求
+                const script = document.createElement('script');
+                const callbackName = 'jsonpCallback_' + Date.now();
+                
+                window[callbackName] = function(data) {
+                    logDebug(`JSONP 回應: ${JSON.stringify(data)}`);
+                    addResult('✅ JSONP 方法成功！', 'success');
+                    document.head.removeChild(script);
+                    delete window[callbackName];
+                };
+                
+                script.src = `${url}?callback=${callbackName}&action=getRecordPageData&userId=${userId}`;
+                script.onerror = function() {
+                    logDebug('JSONP 請求失敗');
+                    addResult('❌ JSONP 方法失敗', 'error');
+                    document.head.removeChild(script);
+                    delete window[callbackName];
+                };
+                
+                document.head.appendChild(script);
+                
+                // 5 秒後超時
+                setTimeout(() => {
+                    if (window[callbackName]) {
+                        logDebug('JSONP 請求超時');
+                        addResult('❌ JSONP 方法超時', 'warning');
+                        document.head.removeChild(script);
+                        delete window[callbackName];
                     }
-                });
-                logDebug(`OPTIONS 回應狀態: ${response.status}`);
-                logDebug(`CORS 標頭: ${response.headers.get('Access-Control-Allow-Origin')}`);
-                addResult('✅ OPTIONS 請求成功', 'success');
+                }, 5000);
+                
             } catch (error) {
-                logDebug(`OPTIONS 請求失敗: ${error.message}`);
-                addResult(`❌ OPTIONS 請求失敗: ${error.message}`, 'error');
+                logDebug(`JSONP 方法錯誤: ${error.message}`);
+                addResult(`❌ JSONP 方法錯誤: ${error.message}`, 'error');
             }
-
-            // 測試 3: POST 請求 (原始方法)
-            try {
-                logDebug('測試 3: POST 請求 (原始方法)');
-                const response = await fetch(API_URL, {
-                    method: 'POST',
-                    mode: 'cors',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        action: 'getRecordPageData',
-                        userId: userId
-                    })
-                });
-                logDebug(`POST 回應狀態: ${response.status}`);
-                const result = await response.json();
-                logDebug(`POST 回應內容: ${JSON.stringify(result)}`);
-                addResult('✅ POST 請求成功', 'success');
-                return result;
-            } catch (error) {
-                logDebug(`POST 請求失敗: ${error.message}`);
-                addResult(`❌ POST 請求失敗: ${error.message}`, 'error');
-            }
-
-            // 測試 4: POST 請求 (無 CORS mode)
-            try {
-                logDebug('測試 4: POST 請求 (無 CORS mode)');
-                const response = await fetch(API_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        action: 'getRecordPageData',
-                        userId: userId
-                    })
-                });
-                logDebug(`POST (無 CORS) 回應狀態: ${response.status}`);
-                const result = await response.json();
-                logDebug(`POST (無 CORS) 回應內容: ${JSON.stringify(result)}`);
-                addResult('✅ POST (無 CORS) 請求成功', 'success');
-                return result;
-            } catch (error) {
-                logDebug(`POST (無 CORS) 請求失敗: ${error.message}`);
-                addResult(`❌ POST (無 CORS) 請求失敗: ${error.message}`, 'error');
-            }
-
-            return null;
         }
 
-        // 主測試函數
-        async function runTests() {
-            const testBtn = document.getElementById('testBtn');
-            testBtn.disabled = true;
-            testBtn.textContent = '測試中...';
+        // 嘗試使用代理
+        async function testProxyMethod() {
+            logDebug('=== 嘗試代理方法 ===');
+            const originalUrl = document.getElementById('urlInput').value;
             
-            // 清空結果
-            document.getElementById('results').innerHTML = '';
+            // 一些公開的 CORS 代理服務
+            const proxies = [
+                `https://api.allorigins.win/raw?url=${encodeURIComponent(originalUrl)}`,
+                `https://cors-anywhere.herokuapp.com/${originalUrl}`,
+            ];
             
-            // 初始化 LIFF
-            const liffReady = await initializeLiff();
-            if (!liffReady) {
-                testBtn.disabled = false;
-                testBtn.textContent = '重新測試';
-                return;
+            for (let proxy of proxies) {
+                try {
+                    logDebug(`嘗試代理: ${proxy}`);
+                    
+                    const response = await fetch(proxy, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: JSON.stringify({
+                            action: 'getRecordPageData',
+                            userId: userId
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        const result = await response.text();
+                        logDebug(`代理回應: ${result}`);
+                        addResult(`✅ 代理方法成功: ${proxy}`, 'success');
+                        return;
+                    }
+                    
+                } catch (error) {
+                    logDebug(`代理 ${proxy} 失敗: ${error.message}`);
+                }
             }
             
-            // 測試連接
-            await testConnection();
-            
-            testBtn.disabled = false;
-            testBtn.textContent = '重新測試';
-            logDebug('=== 測試完成 ===');
+            addResult('❌ 所有代理方法都失敗', 'error');
         }
 
-        // 頁面載入完成後初始化
-        document.addEventListener('DOMContentLoaded', () => {
+        // 生成新部署建議
+        function generateNewDeployment() {
+            logDebug('=== 新部署建議 ===');
+            addResult('建議步驟：', 'info');
+            addResult('1. 開啟 Google Apps Script', 'info');
+            addResult('2. 部署 → 管理部署', 'info');
+            addResult('3. 點擊現有部署的 ✏️ 編輯', 'info');
+            addResult('4. 版本選擇「新版本」', 'info');
+            addResult('5. 描述填寫：修復 LIFF 連接問題', 'info');
+            addResult('6. 點擊「部署」', 'info');
+            addResult('7. 複製新的 URL 並更新前端', 'info');
+            
+            logDebug('或者嘗試建立全新的部署：');
+            addResult('替代方案：建立新部署', 'warning');
+            addResult('部署 → 新增部署 → 網路應用程式', 'warning');
+        }
+
+        // 頁面載入時初始化
+        document.addEventListener('DOMContentLoaded', async () => {
             logDebug('DOM 已載入完成');
+            await initializeLiff();
         });
     </script>
 </body>
