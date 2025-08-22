@@ -17,6 +17,12 @@
         }
         #loading-overlay img { width: 60px; }
         #loading-overlay p { margin-top: 1rem; color: #333; }
+        #debug-info {
+            position: fixed; bottom: 0; left: 0; right: 0; 
+            background: #000; color: #0f0; padding: 10px; 
+            font-family: monospace; font-size: 12px; 
+            max-height: 200px; overflow-y: auto; z-index: 10000;
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -44,26 +50,74 @@
         </form>
     </div>
 
+    <!-- 調試面板 -->
+    <div id="debug-info"></div>
+
 <script>
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzyhXrVghRmCqHfgfvq3Mwx-RsvnD229yu57eI9xxxDYtjMTCqT8IjMHOgR90rrM_GIgQ/exec";
     const LIFF_ID = "2007905512-nML8N5LB";
     let userId = "";
 
+    // 調試日誌功能
+    function debugLog(message) {
+        console.log(message);
+        const debugDiv = document.getElementById('debug-info');
+        const timestamp = new Date().toLocaleTimeString();
+        debugDiv.innerHTML += `[${timestamp}] ${message}<br>`;
+        debugDiv.scrollTop = debugDiv.scrollHeight;
+    }
+
     async function main() {
         const loadingOverlay = document.getElementById('loading-overlay');
         const appDiv = document.getElementById('app');
         const recordForm = document.getElementById('recordForm');
+        
         try {
+            debugLog('開始初始化 LIFF...');
+            
+            // 檢查 LIFF SDK 是否正確載入
+            if (typeof liff === 'undefined') {
+                throw new Error('LIFF SDK 未正確載入');
+            }
+            debugLog('LIFF SDK 已載入');
+
+            // 初始化 LIFF
             await liff.init({ liffId: LIFF_ID });
-            if (!liff.isLoggedIn()) { liff.login(); return; }
+            debugLog('LIFF 初始化成功');
+            
+            // 檢查登入狀態
+            if (!liff.isLoggedIn()) { 
+                debugLog('用戶未登入，跳轉登入頁面');
+                liff.login(); 
+                return; 
+            }
+            debugLog('用戶已登入');
+            
+            // 獲取用戶資料
             const profile = await liff.getProfile();
             userId = profile.userId;
-            const result = await callBackend({ action: 'getRecordPageData', userId: userId });
-            if (result.status === 'error') { throw new Error(result.message); }
+            debugLog(`用戶 ID: ${userId}`);
+            
+            // 呼叫後端 API
+            debugLog('開始呼叫後端 API...');
+            const result = await callBackend({ 
+                action: 'getRecordPageData', 
+                userId: userId 
+            });
+            debugLog(`後端回應: ${JSON.stringify(result)}`);
+            
+            if (result.status === 'error') { 
+                throw new Error(result.message); 
+            }
+            
             const students = result.data.students;
+            debugLog(`學員數量: ${students.length}`);
+            
             if (students.length === 0) {
                 showMessage("太棒了！所有已上課學員均已記錄內容。", 'success');
+                debugLog('沒有需要記錄的學員');
             } else {
+                // 填充學員選項
                 const studentSelect = document.getElementById('studentSelect');
                 studentSelect.innerHTML = '<option value="">-- 請選擇學員 --</option>';
                 students.forEach(name => {
@@ -73,13 +127,21 @@
                     studentSelect.appendChild(option);
                 });
                 recordForm.classList.remove('hidden');
+                debugLog('表單已顯示');
             }
+            
+            // 顯示主應用程式
             appDiv.classList.remove('hidden');
             setTimeout(() => { loadingOverlay.style.opacity = '0'; }, 100);
             setTimeout(() => { loadingOverlay.style.display = 'none'; }, 600);
+            debugLog('應用程式載入完成');
+            
         } catch (error) {
+            debugLog(`錯誤: ${error.message}`);
+            debugLog(`錯誤堆疊: ${error.stack}`);
+            
             const loadingText = loadingOverlay.querySelector('p');
-            loadingText.textContent = error.message;
+            loadingText.textContent = `載入失敗: ${error.message}`;
             loadingText.className = "text-red-600 font-bold";
             const loadingImg = loadingOverlay.querySelector('img');
             if (loadingImg) loadingImg.style.display = 'none';
@@ -104,7 +166,10 @@
         };
 
         try {
+            debugLog(`送出紀錄: ${JSON.stringify(payload)}`);
             const result = await callBackend(payload);
+            debugLog(`送出結果: ${JSON.stringify(result)}`);
+            
             if (result.status === 'success') {
                 showMessage("課程紀錄成功！2秒後將自動關閉。", 'success');
                 recordForm.classList.add('hidden');
@@ -113,6 +178,7 @@
                 throw new Error(result.message);
             }
         } catch (error) {
+            debugLog(`送出失敗: ${error.message}`);
             showMessage(`送出失敗: ${error.message}`, 'error');
             submitBtn.disabled = false;
             submitBtn.textContent = '送出紀錄';
@@ -121,13 +187,34 @@
 
     // 呼叫後端 Apps Script
     async function callBackend(payload) {
-        const response = await fetch(SCRIPT_URL, {
-            method: 'POST',
-            body: JSON.stringify(payload),
-            headers: { 'Content-Type': 'application/json' }
-        });
-        if (!response.ok) throw new Error(`伺服器錯誤: ${response.status}`);
-        return await response.json();
+        try {
+            debugLog(`發送請求到: ${SCRIPT_URL}`);
+            debugLog(`請求內容: ${JSON.stringify(payload)}`);
+            
+            const response = await fetch(SCRIPT_URL, {
+                method: 'POST',
+                body: JSON.stringify(payload),
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                mode: 'cors'
+            });
+            
+            debugLog(`回應狀態: ${response.status} ${response.statusText}`);
+            
+            if (!response.ok) {
+                throw new Error(`伺服器錯誤: ${response.status} ${response.statusText}`);
+            }
+            
+            const result = await response.json();
+            debugLog(`解析回應成功`);
+            return result;
+            
+        } catch (error) {
+            debugLog(`callBackend 錯誤: ${error.message}`);
+            throw error;
+        }
     }
     
     // 在畫面上顯示訊息
@@ -141,12 +228,25 @@
         messageDiv.textContent = msg;
         messageDiv.className = `p-3 mb-4 text-sm rounded-lg ${styles[type]}`;
         messageDiv.classList.remove('hidden');
+        debugLog(`顯示訊息: ${msg} (${type})`);
     }
 
     // ================== 函式結束 ==================
 
-    // 最後才執行 main 函式
-    main();
+    // 頁面載入完成後執行
+    document.addEventListener('DOMContentLoaded', function() {
+        debugLog('DOM 已載入完成，開始執行 main()');
+        main();
+    });
+
+    // 全域錯誤處理
+    window.addEventListener('error', function(event) {
+        debugLog(`全域錯誤: ${event.error ? event.error.message : event.message}`);
+    });
+
+    window.addEventListener('unhandledrejection', function(event) {
+        debugLog(`未處理的 Promise 錯誤: ${event.reason}`);
+    });
 </script>
 </body>
 </html>
